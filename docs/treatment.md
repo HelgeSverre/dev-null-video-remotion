@@ -1,5 +1,7 @@
 # /dev/null — launch film treatment
 
+> **Pass 2 (current):** the film runs on Helge's track "Deviation" at 144.23 BPM, 72.8 s, with two scenes added (follows, readme) and later scenes moved onto the track's sections. `docs/decisions.md` → "Pass 2" has the bar map. The beat sheet below is pass 1 (120 BPM, 40 bars, synthesized score). Pass 1 still describes each scene's content and cue order.
+
 80 seconds, 1920×1080, 30 fps, no voice-over. On-screen type carries the words; a synthesized 120 BPM score carries the energy. Every visual is drawn in code from devnull's own design system (`../dev-null.sh/DESIGN.md`), so the film looks like the product, not like a render of it.
 
 ## 1. Logline and central conceit

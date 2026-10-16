@@ -1,11 +1,11 @@
 // S13 montage: the twelve vignettes, each drawn at product scale (the scene scales them up).
 // Every vignette is a pure function of `t`, the frame inside its 30-frame cut (0 on the cut).
 // Copy and layout come from ../dev-null.sh/resources/js (commit-card, commit-composer,
-// secret-warning, commit-poll, code-block, user-search-dialog, activity graph SVG,
+// secret-warning, commit-poll, code-block, user-search-dialog, link-embed,
 // notification/index, error, commit-feed).
 import type { CSSProperties, ReactNode } from 'react';
 import { clamp01, easeInOut, easeOut, expoOut, nodeIn, pulse, ramp, spring } from '../lib/motion';
-import { hash, rng, typedCount } from '../lib/rand';
+import { typedCount } from '../lib/rand';
 import { CAST, TYPING, type Person, type TypeRun } from '../storyboard';
 import { BODY_FEATURES, MONO, SANS, type Palette } from '../theme';
 import { Avatar, Button, CommitRow, Icon, Identicon, Node } from './kit';
@@ -37,7 +37,6 @@ const PATHS = {
   replyMsg: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z m10 7-3 3 3 3 M17 13v-1a2 2 0 0 0-2-2H7',
   copy: 'M10 8h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2z M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2',
   check: 'M20 6 9 17l-5-5',
-  book: 'M12 7v14 M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z',
   eye: 'M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0 M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0',
 } as const;
 function Glyph({ d, size = 16, color, fill = 'none', stroke = 2 }: { d: string; size?: number; color: string; fill?: string; stroke?: number }) {
@@ -503,85 +502,99 @@ export function SearchV({ t, P, F }: VProps) {
   );
 }
 
-// ── 8 · README graph embed ─────────────────────────────────────────────────────────────────
+// ── 8 · link embeds (asciinema) ─────────────────────────────────────────────────────────────
 
-/** UserActivityGraph's SVG (resources/views/svg/activity-graph.blade.php), dark theme, lane 3. */
-function GraphSvg({ P, sweep }: { P: Palette; sweep: number }) {
-  const W = 754;
-  const lane = P.lanes[3]!;
-  const card = '#18181a';
-  const lv = ['#232326', mix(card, lane, 0.32), mix(card, lane, 0.56), mix(card, lane, 0.8), lane];
-  const r = rng(hash(`${ada.handle}-graph`));
-  const cells: ReactNode[] = [];
-  let total = 0;
-  for (let c = 0; c < 53; c++)
-    for (let d = 0; d < 7; d++) {
-      const busy = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(c * 0.37 + 1.3)) * (c > 30 ? 1 : 0.7);
-      const v = r();
-      const level = v > busy ? 0 : v > busy * 0.6 ? 1 : v > busy * 0.35 ? 2 : v > busy * 0.15 ? 3 : 4;
-      if (c === 52 && d > 3) continue;
-      total += level;
-      const on = c < sweep;
-      cells.push(<rect key={`${c}-${d}`} x={48 + c * 13} y={66 + d * 13} width={10} height={10} rx={2} fill={on ? lv[level] : lv[0]} />);
-    }
-  const months = ['Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'];
-  const shown = Math.round(total * clamp01(sweep / 53));
+/** lucide code-xml / play / pause. */
+const EMBED_PATHS = {
+  code: 'm18 16 4-4-4-4 M6 8l-4 4 4 4 M14.5 4l-5 16',
+  play: 'M6 3l14 9-14 9V3z',
+  pause: 'M14 4h4v16h-4z M6 4h4v16H6z',
+};
+/** The recording: `git bisect run`, one line every few frames once the player opens. */
+const CAST_LINES: { s: string; at: number; strong?: boolean }[] = [
+  { s: '$ git bisect run ./test.sh', at: 8 },
+  { s: "running './test.sh'", at: 13 },
+  { s: 'Bisecting: 6 revisions left to test after this (roughly 3 steps)', at: 15 },
+  { s: 'Bisecting: 3 revisions left to test after this (roughly 2 steps)', at: 18 },
+  { s: 'Bisecting: 1 revision left to test after this (roughly 1 step)', at: 21 },
+  { s: 'b41c0de is the first bad commit', at: 24, strong: true },
+  { s: 'bisect found first bad commit', at: 26 },
+];
+const PLAYER_H = 176;
+
+/** components/link-embed.tsx: a code embed (asciinema, fixed height) is a card until clicked, then the player. */
+export function EmbedsV({ t, P }: VProps) {
+  const click = 5;
+  const playing = t >= click;
+  const open = expoOut(clamp01((t - click) / 7));
+  const hover = t >= 1.5 && !playing;
+  const pressed = t >= 3.5 && t < click ? 1 : 0;
+  const card = 96; // my-2 + size-20 thumbnail
+  const cmd = CAST_LINES[0]!.s;
+  const typed = Math.round(clamp01((t - 8) / 4) * (cmd.length - 2)) + 2;
+  const progress = clamp01((t - click) / 26);
+  const termBg = '#121314';
   return (
-    <svg width={W} height={196} viewBox={`0 0 ${W} 196`} style={{ display: 'block' }}>
-      <rect x={0.5} y={0.5} width={W - 1} height={195} rx={6} fill={card} stroke="#2a2a2d" />
-      <circle cx={24} cy={27.5} r={4} fill={lane} />
-      <text x={34} y={32} fontSize={13} fill={P.ink} fontFamily={MONO}>
-        @{ada.handle}
-      </text>
-      <path transform={`translate(${W - 20 - 80} 20.5) scale(0.5833)`} fillRule="evenodd" fill={P.ink} d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 2.5c1.6 0 3.08.5 4.3 1.37L5.87 16.3A7.5 7.5 0 0 1 12 4.5Zm0 15a7.47 7.47 0 0 1-4.3-1.37L18.13 7.7A7.5 7.5 0 0 1 12 19.5Z" />
-      <text x={W - 20} y={32} fontSize={13} fontWeight={600} textAnchor="end" fill={P.ink} fontFamily={SANS} textLength={60} lengthAdjust="spacingAndGlyphs">
-        /dev/null
-      </text>
-      <g fontSize={10} fill={P.muted} fontFamily={SANS}>
-        {months.map((m, i) => (
-          <text key={m} x={48 + Math.round(i * 4.42 + 2) * 13} y={58}>
-            {m}
-          </text>
-        ))}
-        {[['Mon', 1], ['Wed', 3], ['Fri', 5]].map(([l, d]) => (
-          <text key={l} x={20} y={66 + (d as number) * 13 + 9}>
-            {l}
-          </text>
-        ))}
-      </g>
-      <g>{cells}</g>
-      <text x={20} y={180} fontSize={11} fill={P.muted} fontFamily={MONO}>
-        <tspan fill={P.ink}>{shown}</tspan> commits in the last year · longest streak <tspan fill={P.ink}>12</tspan> days · <tspan fill={lane}>●</tspan> current <tspan fill={P.ink}>3</tspan>
-      </text>
-      <text x={W - 20 - 28 - 10 - 4 * 13 - 4} y={180} fontSize={10} fill={P.muted} textAnchor="end" fontFamily={SANS}>
-        Less
-      </text>
-      {[0, 1, 2, 3, 4].map((l) => (
-        <rect key={l} x={W - 20 - 28 - 10 - (4 - l) * 13} y={171} width={10} height={10} rx={2} fill={lv[l]} />
-      ))}
-      <text x={W - 20 - 28 + 4} y={180} fontSize={10} fill={P.muted} fontFamily={SANS}>
-        More
-      </text>
-    </svg>
-  );
-}
-export function GraphV({ t, P }: VProps) {
-  const sweep = 53 * easeInOut(clamp01((t - 1) / 18));
-  return (
-    <div style={{ width: 802, borderRadius: 8, border: `1px solid ${P.hairline}`, background: P.surface, fontFamily: SANS, color: P.ink, overflow: 'hidden' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 44, padding: '0 16px', borderBottom: `1px solid ${P.hairline}`, background: P.popover }}>
-        <Glyph d={PATHS.book} size={16} color={P.muted} />
-        <span style={mono(13, P.ink)}>{ada.handle}</span>
-        <span style={mono(13, P.muted)}>/</span>
-        <span style={mono(13, P.ink)}>README.md</span>
-      </div>
-      <div style={{ padding: '20px 24px 24px' }}>
-        <div style={{ fontSize: 28, fontWeight: 600, letterSpacing: '-0.02em', paddingBottom: 8, borderBottom: `1px solid ${P.hairline}` }}>Hi, I'm {ada.name.split(' ')[0]}.</div>
-        <div style={{ marginTop: 12, fontSize: 16, color: P.ink }}>{ada.bio}</div>
-        <div style={{ marginTop: 16 }}>
-          <GraphSvg P={P} sweep={sweep} />
-        </div>
-      </div>
+    <div style={{ width: ROW_W, borderTop: `1px solid ${P.hairline}` }}>
+      <CommitRow
+        P={P}
+        person={dennis}
+        width={ROW_W}
+        time="8m"
+        hash="5e0f1a7"
+        body={
+          <>
+            Found it in four steps. Recording:{' '}
+            <span style={{ color: P.primary }}>asciinema.org/a/649218</span>
+          </>
+        }
+        above={P.rail}
+        below={P.lanes[4]}
+        stars={37}
+        extra={
+          <div style={{ position: 'relative', marginTop: 12, borderRadius: 8, border: `1px solid ${P.hairline}`, overflow: 'hidden', height: card + (PLAYER_H - card) * open }}>
+            {/* the card: thumbnail with the code icon, provider and title */}
+            <div style={{ position: 'absolute', inset: 0, height: card, display: 'flex', alignItems: 'center', background: hover ? P.wash : 'transparent', opacity: 1 - clamp01(open * 2.5), transform: `scale(${1 - 0.015 * pressed})` }}>
+              <div style={{ position: 'relative', margin: '8px 0 8px 8px', width: 80, height: 80, borderRadius: 6, overflow: 'hidden', background: termBg, flex: 'none' }}>
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <div key={i} style={{ position: 'absolute', left: 8, top: 10 + i * 12, height: 4, width: [44, 30, 58, 52, 22][i], borderRadius: 1, background: i === 0 ? '#ececec' : '#55565a', opacity: 0.8 }} />
+                ))}
+                <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)', display: 'grid', placeItems: 'center' }}>
+                  <Glyph d={EMBED_PATHS.code} size={28} color="#ffffff" />
+                </div>
+              </div>
+              <div style={{ minWidth: 0, flex: 1, padding: '8px 12px' }}>
+                <div style={mono(13, P.muted)}>asciinema</div>
+                <div style={{ fontSize: 15, fontWeight: 500, lineHeight: 1.375 }}>git bisect, start to finish</div>
+              </div>
+            </div>
+            {/* the player */}
+            {playing ? (
+              <div style={{ position: 'absolute', inset: 0, height: PLAYER_H, background: termBg, opacity: clamp01(open * 2), display: 'flex', flexDirection: 'column' }}>
+                <div style={{ flex: 1, padding: '10px 12px 0', fontFamily: MONO, fontSize: 11, lineHeight: '16px', color: '#cfcfd2', whiteSpace: 'pre', overflow: 'hidden' }}>
+                  {CAST_LINES.map((l, i) =>
+                    t >= l.at ? (
+                      <div key={i} style={{ color: l.strong ? '#ffffff' : i === 0 ? '#ececec' : '#a1a1a6', fontWeight: l.strong ? 600 : 400 }}>
+                        {i === 0 ? cmd.slice(0, typed) : l.s}
+                        {i === 0 && t < 13 ? <span style={{ display: 'inline-block', width: 6, height: 12, background: '#cfcfd2', verticalAlign: 'text-bottom', marginLeft: 1 }} /> : null}
+                      </div>
+                    ) : null,
+                  )}
+                  {t >= 26 ? <span style={{ display: 'inline-block', width: 6, height: 12, background: '#cfcfd2', opacity: Math.floor(t / 3) % 2 ? 0 : 1 }} /> : null}
+                </div>
+                {/* control bar */}
+                <div style={{ height: 26, display: 'flex', alignItems: 'center', gap: 10, padding: '0 10px', background: 'rgba(255,255,255,0.04)', borderTop: '1px solid #2a2a2d' }}>
+                  <Glyph d={t < 27 ? EMBED_PATHS.pause : EMBED_PATHS.play} size={12} color="#ececec" fill="#ececec" stroke={1} />
+                  <span style={mono(11, '#a1a1a6')}>00:{String(Math.min(40, Math.floor(progress * 40))).padStart(2, '0')}</span>
+                  <div style={{ flex: 1, height: 4, borderRadius: 2, background: '#36363a', overflow: 'hidden' }}>
+                    <div style={{ width: `${100 * progress}%`, height: '100%', background: '#ececec' }} />
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        }
+      />
     </div>
   );
 }

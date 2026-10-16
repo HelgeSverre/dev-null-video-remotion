@@ -13,7 +13,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { getCompositions } from '@remotion/renderer';
-import { sceneFrom } from '../src/lib/scene';
+import { sceneFrom, sceneLen } from '../src/lib/scene';
 import { SCENES } from '../src/storyboard';
 
 const ROOT = resolve(import.meta.dir, '..');
@@ -108,7 +108,7 @@ if (comp === 'Full' && !draft) {
   must('ffmpeg', ['-loglevel', 'error', '-y', '-i', output, '-c:v', 'libx264', '-preset', 'slow', '-crf', '22', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', web]);
   const title = SCENES.find((s) => s.id === 'title')!;
   const poster = join(OUT, 'poster.jpg');
-  must('ffmpeg', ['-loglevel', 'error', '-y', '-ss', ((sceneFrom(title) + 100) / meta.fps).toFixed(3), '-i', output, '-frames:v', '1', '-q:v', '2', poster]);
+  must('ffmpeg', ['-loglevel', 'error', '-y', '-ss', ((sceneFrom(title) + Math.round(sceneLen(title) * 0.85)) / meta.fps).toFixed(3), '-i', output, '-frames:v', '1', '-q:v', '2', poster]);
   console.log(`[render] web ${mb(web)}, poster ${poster}`);
 }
 console.log(`[render] done in ${((performance.now() - t0) / 60000).toFixed(1)} min`);

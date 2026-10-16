@@ -7,7 +7,6 @@
 import type { ReactNode } from 'react';
 import { interpolateColors } from 'remotion';
 import { clamp01 } from '../lib/motion';
-import { rng } from '../lib/rand';
 import type { Lane } from '../storyboard';
 import { MONO, SANS } from '../theme';
 
@@ -60,45 +59,25 @@ const mixOklab = (color: string, base: string, k: number) => {
 };
 const levels = (t: Theme, lane: Lane) => LEVEL_MIX.map((k, i) => (i === 0 ? t.empty : mixOklab(t.lanes[lane]!, t.card, k)));
 
-// ── the year (mock, internally consistent) ─────────────────────────────────────────────────
+// ── the year (mock, the same history as the profile scene) ─────────────────────────────────
 // ActivityScale::Year: 52 weeks back from Fri 16 Oct 2026, from the Sunday of that week. 370 days,
-// 53 columns, the last one Sun–Fri. Longest streak 12 days, current 3 (same as the profile scene).
+// 53 columns, the last one Sun–Fri. He joined on Thu 1 Oct 2026, so the year is empty except for
+// its last 16 days, which carry exactly the profile scene's per-day counts (src/scenes/profile.tsx):
+// 46 commits, longest streak 12 (Oct 1–12), a day off, current 3 (Oct 14–16). Same max (6), so the
+// levels agree cell for cell.
 const START = Date.UTC(2025, 9, 12); // Sun 12 Oct 2025
 const DAYS = 370;
 export const COLUMNS = Math.ceil(DAYS / 7);
 export const GRAPH_W = GRID_X + COLUMNS * STEP - (STEP - CELL) + PADDING; // 754
 export const LONGEST = 12;
 export const CURRENT = 3;
-/** First day of the planted longest streak. */
-const STREAK_AT = 247;
+/** Oct 1 → Oct 16, verbatim from the profile scene. */
+const OCTOBER = [2, 4, 3, 5, 1, 3, 6, 2, 4, 3, 2, 4, 0, 2, 3, 2];
+/** Index of Thu 1 Oct 2026, the first active day (and the first day of the longest streak). */
+export const JOINED = DAYS - OCTOBER.length; // 354
+const STREAK_AT = JOINED;
 
-export const COUNTS: number[] = (() => {
-  const r = rng(20261016);
-  const out: number[] = [];
-  for (let i = 0; i < DAYS; i++) {
-    const dow = i % 7;
-    const season = 0.72 + 0.22 * Math.sin(i / 37 + 1.1) + 0.08 * Math.sin(i / 9);
-    const p = (dow === 0 ? 0.28 : dow === 6 ? 0.36 : 0.74) * season;
-    out.push(r() < p ? 1 + Math.floor(Math.pow(r(), 1.7) * 9) : 0);
-  }
-  // no run longer than the planted one
-  let run = 0;
-  for (let i = 0; i < DAYS; i++) {
-    run = out[i]! > 0 ? run + 1 : 0;
-    if (run > LONGEST - 2) {
-      out[i] = 0;
-      run = 0;
-    }
-  }
-  // the longest streak, fenced by empty days
-  out[STREAK_AT - 1] = 0;
-  out[STREAK_AT + LONGEST] = 0;
-  for (let i = 0; i < LONGEST; i++) out[STREAK_AT + i] = Math.max(2, out[STREAK_AT + i]!, 3 + ((i * 5) % 6));
-  // the current streak: the last three days, after a day off
-  out[DAYS - CURRENT - 1] = 0;
-  for (let i = DAYS - CURRENT; i < DAYS; i++) out[i] = Math.max(1, out[i]!);
-  return out;
-})();
+export const COUNTS: number[] = Array.from({ length: DAYS }, (_, i) => (i >= JOINED ? OCTOBER[i - JOINED]! : 0));
 const MAX = Math.max(1, ...COUNTS);
 const LEVEL = COUNTS.map((c) => (c === 0 ? 0 : Math.max(1, Math.ceil((c / MAX) * 4))));
 export const TOTAL = COUNTS.reduce((s, c) => s + c, 0);
@@ -123,8 +102,10 @@ export type GraphProps = {
   lane: Lane;
   /** 0 = ?theme=light (the default), 1 = ?theme=dark. */
   dark?: number;
-  /** Fill progress 0..1 of column `c` (cells pop in from the empty colour). */
-  column: (c: number) => number;
+  /** 0..1: the empty grid drawing in, column by column. */
+  grid: (col: number) => number;
+  /** 0..1: fill of day `d` since joining (0 = Oct 1); the cell pops from empty to its level. */
+  fill: (d: number) => number;
   /** 0..1: the "longest streak · current" part of the stats line. */
   streak: number;
   /** 0..1 flash on the longest-streak cells (full lane colour, slight swell), staggered by day. */
@@ -132,7 +113,7 @@ export type GraphProps = {
 };
 
 /** The SVG, at its own 754×196 product size. */
-export function ActivityGraphSvg({ lane, dark = 0, column, streak, streakFlash }: GraphProps) {
+export function ActivityGraphSvg({ lane, dark = 0, grid, fill: fillOf, streak, streakFlash }: GraphProps) {
   const L = levels(LIGHT, lane);
   const D = levels(DARK, lane);
   const c = (a: string, b: string) => (dark <= 0 ? a : dark >= 1 ? b : interpolateColors(dark, [0, 1], [a, b]));
@@ -143,19 +124,21 @@ export function ActivityGraphSvg({ lane, dark = 0, column, streak, streakFlash }
   let shown = 0;
   for (let i = 0; i < DAYS; i++) {
     const col = Math.floor(i / 7);
-    const p = clamp01(column(col));
+    const g = clamp01(grid(col));
+    if (g <= 0) continue;
     const level = LEVEL[i]!;
+    const p = level > 0 ? clamp01(fillOf(i - JOINED)) : 0;
     if (p >= 0.5) shown += COUNTS[i]!;
-    const lit = level > 0 && p > 0;
-    // a lit cell pops: 0.55 → 1.12 → 1 as p runs 0 → 1
-    const pop = lit ? (p < 0.6 ? 0.55 + (1.12 - 0.55) * (p / 0.6) : 1.12 - 0.12 * ((p - 0.6) / 0.4)) : 1;
+    const lit = p > 0;
+    // a lit cell pops: 0.55 → 1.25 → 1 as p runs 0 → 1; empty cells grow in with the grid
+    const pop = lit ? (p < 0.5 ? 0.55 + (1.25 - 0.55) * (p / 0.5) : 1.25 - 0.25 * ((p - 0.5) / 0.5)) : 0.4 + 0.6 * g;
     const flash = streakFlash && isStreakDay(i) ? streakFlash(i - STREAK_AT) : 0;
     const s = CELL * pop * (1 + 0.2 * flash);
     const x = GRID_X + col * STEP + (CELL - s) / 2;
     const y = GRID_Y + (i % 7) * STEP + (CELL - s) / 2;
     const base = lit ? (p >= 1 ? lv[level]! : interpolateColors(Math.min(1, p * 1.6), [0, 1], [lv[0]!, lv[level]!])) : lv[0]!;
     const fill = flash > 0.01 ? interpolateColors(flash, [0, 1], [base, lv[4]!]) : base;
-    cells.push(<rect key={i} x={x} y={y} width={s} height={s} rx={2} fill={fill} />);
+    cells.push(<rect key={i} x={x} y={y} width={s} height={s} rx={2} fill={fill} opacity={lit ? 1 : g} />);
   }
   const legendX = (l: number) => GRAPH_W - PADDING - LEGEND_LABEL - CELL - (4 - l) * STEP;
 

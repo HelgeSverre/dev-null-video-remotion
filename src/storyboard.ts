@@ -81,7 +81,7 @@ export const LANE_HOPS: { at: Pos; lane: Lane | 'auto' }[] = [
 /** Montage cuts: every two beats from 33.1 (the track's drop). */
 export const MONTAGE = [
   'undo', 'stash', 'secrets', 'poll', 'code', 'series',
-  'search', 'graph', 'notifications', 'ratelimit', 'lastvisit', 'api',
+  'search', 'embeds', 'notifications', 'ratelimit', 'lastvisit', 'api',
 ] as const;
 export const montageAt = (i: number): Pos => [33 + Math.floor(i / 2), (i % 2) * 2 + 1];
 /** Keys: j/j/k move focus, y yanks the link (toast); the theme flips on 32.1. */
@@ -125,6 +125,19 @@ export const SFX: Sfx[] = [
   { at: [23, 1], kind: 'whoosh' },
   { at: [24, 1], kind: 'pop', lane: 4 },
   // follows + readme: cues added with the scenes
+  // follows: a pop per imported person in their lane (25.2–26.3), the last Follow → Following on 26.4
+  { at: [25, 2], kind: 'pop', lane: 1 },
+  { at: [25, 3], kind: 'pop', lane: 2 },
+  { at: [25, 4], kind: 'pop', lane: 0 },
+  { at: [26, 1], kind: 'pop', lane: 4 },
+  { at: [26, 2], kind: 'pop', lane: 5 },
+  { at: [26, 3], kind: 'pop', lane: 1 },
+  { at: [26, 4], kind: 'click' },
+  // readme: paste the snippet, the preview renders it, the streak lands, ?theme=dark flips it
+  { at: [27, 2], kind: 'click' },
+  { at: [27, 3], kind: 'blip' },
+  { at: [28, 2], kind: 'pop', lane: 3 },
+  { at: [28, 3], kind: 'flip' },
   // profile
   { at: [29, 1], kind: 'whoosh' },
   ...[1, 2, 3, 4].map((b): Sfx => ({ at: [30, b], kind: 'pop', lane: 3 })),

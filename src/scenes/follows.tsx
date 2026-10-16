@@ -61,7 +61,7 @@ export function Follows() {
 
   // the protagonist's node lands with the cut
   const meHit = punch(f, 0, 12);
-  const mePulse = { scale: 1 + 0.9 * clamp01(f / 20), opacity: 0.5 * (1 - clamp01(f / 20)) };
+  const mePulse = { scale: 1 + 0.55 * clamp01(f / 18), opacity: 0.55 * (1 - clamp01(f / 18)) };
 
   // camera: slow 2 % drift
   const cam = 1 + 0.02 * (f / len);
@@ -116,7 +116,7 @@ export function Follows() {
             const following = f >= r.flip;
             const press = punch(f, r.flip, 8);
             const tag = r.mutual ? spring(f, r.flip + BEAT / 2, 12, 0.4) : 0;
-            const ns = nodeIn(f, r.t - 4);
+            const ns = nodeIn(f, r.t - 6);
             const pl = { scale: 1 + 0.9 * clamp01((f - r.t) / 20), opacity: f < r.t ? 0 : 0.5 * (1 - clamp01((f - r.t) / 20)) };
             return (
               <div key={r.i} style={{ position: 'absolute', left: 0, top: r.top, width: W, height: ROW_H }}>

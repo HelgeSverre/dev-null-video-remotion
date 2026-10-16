@@ -8,10 +8,10 @@ import type { ComponentType } from 'react';
 import { AbsoluteFill } from 'remotion';
 import { useScene } from '../lib/scene';
 import { clamp01, easeOut, expoOut, nodeIn, pulse, punch } from '../lib/motion';
-import { CAST, MONTAGE, montageAt } from '../storyboard';
+import { MONTAGE, montageAt } from '../storyboard';
 import { MONO, SANS, type Palette } from '../theme';
 import { Node, Words } from '../ui/kit';
-import { ApiV, CodeV, GraphV, LastVisitV, NotificationsV, PollV, RateLimitV, SearchV, SecretsV, SeriesV, StashV, UndoV, type VProps } from '../ui/montage-vignettes';
+import { ApiV, CodeV, EmbedsV, LastVisitV, NotificationsV, PollV, RateLimitV, SearchV, SecretsV, SeriesV, StashV, UndoV, type VProps } from '../ui/montage-vignettes';
 
 type Layout = 'left' | 'right' | 'top' | 'none';
 type Cut = { id: (typeof MONTAGE)[number]; V: ComponentType<VProps>; label: string; sub?: string; layout: Layout; scale: number; from: [number, number]; ui?: [number, number] };
@@ -27,7 +27,7 @@ const CUTS: Cut[] = [
   { id: 'code', V: CodeV, label: 'Code, highlighted.', layout: 'top', scale: 2.2, from: [0, 1], ui: [960, 580] },
   { id: 'series', V: SeriesV, label: 'Say more,\nin a series.', layout: 'right', scale: 1.85, from: [-1, 0] },
   { id: 'search', V: SearchV, label: 'Find anyone.', layout: 'top', scale: 1.95, from: [0, 0], ui: [960, 560] },
-  { id: 'graph', V: GraphV, label: 'Your graph, in your README.', sub: `![devnull activity](https://dev-null.sh/@${CAST.ada.handle}/graph.svg)`, layout: 'top', scale: 1.55, from: [0, 1], ui: [960, 665] },
+  { id: 'embeds', V: EmbedsV, label: 'Links play\ninline.', layout: 'left', scale: 1.75, from: [1, 0] },
   { id: 'notifications', V: NotificationsV, label: 'Your inbox\nis a log.', layout: 'right', scale: 1.85, from: [-1, 0] },
   { id: 'ratelimit', V: RateLimitV, label: '', layout: 'none', scale: 2.2, from: [-1, 0], ui: [1000, 540] },
   { id: 'lastvisit', V: LastVisitV, label: 'Where you\nleft off.', layout: 'left', scale: 1.8, from: [1, 0] },
