@@ -1,0 +1,27 @@
+{
+  "name": "dev-null-video-remotion",
+  "private": true,
+  "type": "module",
+  "description": "/dev/null — an 80-second launch film for dev-null.sh, drawn as a git log. Remotion + a synthesized 120 BPM score. See README.md.",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.534",
+    "@remotion/cli": "4.0.534",
+    "@remotion/fonts": "4.0.534",
+    "@remotion/media": "4.0.534",
+    "@remotion/renderer": "4.0.534",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "remotion": "4.0.534"
+  },
+  "devDependencies": {
+    "@fontsource/geist-mono": "5.3.0",
+    "@fontsource/geist-sans": "5.3.0",
+    "@types/bun": "1.4.2",
+    "@types/react": "19.3.0",
+    "typescript": "6.0.3"
+  }
+}

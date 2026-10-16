@@ -1,0 +1,5 @@
+[project]
+name = "deviation-analysis"
+version = "0.1.0"
+requires-python = ">=3.11,<3.13"
+dependencies = ["librosa==0.10.2.post1", "numpy<2.1", "soundfile", "scipy"]
