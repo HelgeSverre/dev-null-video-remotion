@@ -1,8 +1,6 @@
 node_modules/
 out/
 build/
-public/audio/
-public/fonts/
 .DS_Store
 analysis/.venv/
 analysis/__pycache__/
